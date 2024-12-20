@@ -1,6 +1,6 @@
 # Compiler and flags
 CXX = g++
-CXXFLAGS = -std=c++17 -DGL_SILENCE_DEPRECATION -I$(INCLUDE_DIR) -mmacosx-version-min=14.6
+CXXFLAGS = -std=c++17 -DGL_SILENCE_DEPRECATION -I$(INCLUDE_DIR) -Iglfw-3.4/include -mmacosx-version-min=14.6
 LDFLAGS = -framework Cocoa -framework IOKit -framework CoreVideo -L/opt/homebrew/lib -lglfw -mmacosx-version-min=14.6
 
 # Directories
