@@ -1,0 +1,1 @@
+g++ main.cpp -o OpenGLApp -I/Users/ray.clinton/graphics/ogl/glfw-3.4/include /Users/ray.clinton/graphics/ogl/build/src/libglfw3.a glad.c -framework OpenGL -framework Cocoa -framework IOKit -framework CoreFoundation -mmacosx-version-min=14.6 -DGL_SILENCE_DEPRECATION
