@@ -1,9 +1,15 @@
 #include <vector>
 #include <cstdint>
 #include <iostream>
+#include <glad/glad.h>
 #include <GLFW/glfw3.h>
 
 using namespace std;
+
+void framebuffer_size_callback(GLFWwindow* window, int width, int height)
+{
+    glViewport(0, 0, width, height);
+}
 
 void processInput(GLFWwindow *window)
 {
@@ -33,6 +39,8 @@ class Rasterizer {
         int width;
         int height;
         std::vector<uint32_t> framebuffer;  // This will store RGBA colors (8 bits each)
+
+        GLuint textureID;
 
         int getPixelPoint(int x, int y) {
             return y * this->width + x;
@@ -64,7 +72,50 @@ class Rasterizer {
             }
             return this->framebuffer[getPixelPoint(x, y)];
         }
+
+        GLuint getTextureID() {
+            return textureID;
+        }
+
+        GLuint specify2DTexture() {
+           glGenTextures(1, &textureID);
+           glBindTexture(GL_TEXTURE_2D, textureID);
+       
+           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+           glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+       
+           glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA8, width, height, 0, GL_RGBA, GL_UNSIGNED_BYTE, framebuffer.data());
+
+           return textureID;
+        }
+
+        void updateTexture(int x, int y, uint32_t color) {
+            setPixel(x, y, color);
+
+            glTexSubImage2D(GL_TEXTURE_2D, 0, x, y, 1, 1, GL_RGBA, GL_UNSIGNED_BYTE, &framebuffer[getPixelPoint(x, y)]);
+        }
 };
+
+const char *vertexShaderSource = "#version 330 core\n"
+    "layout (location = 0) in vec3 aPos;\n"
+    "layout (location = 1) in vec2 aTexCoord;\n"
+    "out vec2 TexCoord;\n"
+    "void main()\n"
+    "{\n"
+    "   gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);\n"
+    "   TexCoord = aTexCoord;\n"
+    "}\0";
+
+const char *fragmentShaderSource = "#version 330 core\n"
+    "out vec4 FragColor;\n"                // Output color of the pixel
+    "in vec2 TexCoord;\n"                  // Input from vertex shader
+    "uniform sampler2D ourTexture;\n"      // Our texture sampler
+    "void main()\n"
+    "{\n"
+    "    FragColor = texture(ourTexture, TexCoord);\n"
+    "}\0";
 
 int main() {
     // Create a small rasterizer (like 20x20 pixels)
@@ -104,6 +155,59 @@ int main() {
 
     // Make the OpenGL context current
     glfwMakeContextCurrent(window);
+
+    if (!gladLoadGLLoader((GLADloadproc)glfwGetProcAddress))
+    {
+        std::cout << "Failed to initialize GLAD" << std::endl;
+        return -1;
+    }
+
+    rasterizer.specify2DTexture();
+
+    unsigned int vertexShader;
+    vertexShader = glCreateShader(GL_VERTEX_SHADER);
+    
+    glShaderSource(vertexShader, 1, &vertexShaderSource, NULL);
+    glCompileShader(vertexShader);
+    
+    int  success;
+    char infoLog[512];
+    glGetShaderiv(vertexShader, GL_COMPILE_STATUS, &success);
+    
+    if(!success)
+    {
+        glGetShaderInfoLog(vertexShader, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::VERTEX::COMPILATION_FAILED\n" << infoLog << std::endl;
+        return -1;
+    } 
+
+    unsigned int fragmentShader;
+    fragmentShader = glCreateShader(GL_FRAGMENT_SHADER);
+
+    glShaderSource(fragmentShader, 1, &fragmentShaderSource, NULL);
+    glCompileShader(fragmentShader);
+
+    memset(infoLog, 0, sizeof infoLog);
+
+    glGetShaderiv(fragmentShader, GL_COMPILE_STATUS, &success);
+
+    unsigned int shaderProgram;
+    shaderProgram = glCreateProgram();
+    glAttachShader(shaderProgram, vertexShader);
+    glAttachShader(shaderProgram, fragmentShader);
+    glLinkProgram(shaderProgram);
+    
+    // Check for linking errors
+    glGetProgramiv(shaderProgram, GL_LINK_STATUS, &success);
+    if(!success) {
+        glGetProgramInfoLog(shaderProgram, 512, NULL, infoLog);
+        std::cout << "ERROR::SHADER::PROGRAM::LINKING_FAILED\n" << infoLog << std::endl;
+        return -1;
+    }
+    
+    // Clean up shaders as they're linked into program and no longer needed
+    glDeleteShader(vertexShader);
+    glDeleteShader(fragmentShader);
 
     while (!glfwWindowShouldClose(window)) {
         //glClear(GL_COLOR_BUFFER_BIT);
